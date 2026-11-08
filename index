@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="lv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FizikaLV – mācies fiziku</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>⚛️ FizikaLV</h1>
+    <nav>
+      <button data-tab="lessons" class="active">Mācības</button>
+      <button data-tab="sim">Simulācija</button>
+      <button data-tab="quiz">Tests</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- MĀCĪBAS -->
+    <section id="lessons" class="tab active">
+      <div id="lesson-list"></div>
+      <article id="lesson-view"></article>
+    </section>
+
+    <!-- SIMULĀCIJA -->
+    <section id="sim" class="tab">
+      <h2>Slīpi mesta ķermeņa kustība</h2>
+      <div class="controls">
+        <label>Sākuma ātrums: <b id="v-val">20</b> m/s
+          <input type="range" id="v0" min="5" max="50" value="20"></label>
+        <label>Leņķis: <b id="a-val">45</b>°
+          <input type="range" id="angle" min="5" max="85" value="45"></label>
+        <label>Brīvās krišanas paātrinājums g: <b id="g-val">9.81</b> m/s²
+          <input type="range" id="g" min="1" max="25" step="0.01" value="9.81"></label>
+        <button id="launch">🚀 Palaist</button>
+      </div>
+      <canvas id="canvas" width="800" height="400"></canvas>
+      <p id="sim-result"></p>
+    </section>
+
+    <!-- TESTS -->
+    <section id="quiz" class="tab">
+      <h2>Pārbaudi zināšanas</h2>
+      <div id="quiz-box"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
