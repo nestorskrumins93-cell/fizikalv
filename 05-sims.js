@@ -233,6 +233,36 @@
     const p = {}; sim.params.forEach(q => p[q.id] = q.value);
     box.innerHTML = '<div class="sim-wrap"><div class="card" id="ctl"></div><div><canvas class="sim"></canvas><div class="readout" id="ro"></div><div class="card mt eqs" id="eq"></div><div class="row mt"><button class="btn" id="pp">⏸ Pauze</button><button class="btn" id="rs">↺ No sākuma</button></div></div></div>';
     const ctl = FZ.$("#ctl", box), cv = FZ.$("canvas", box), ctx = cv.getContext("2d"), ro = FZ.$("#ro", box), eqEl = FZ.$("#eq", box);
+    /* Kalkulators katrai simulācijai: izmanto tās pašas parametru definīcijas,
+       aprēķinu funkcijas un vienādojumus, ko izmanto pati simulācija. */
+    const calcBox = document.createElement("section");
+    calcBox.className = "card mt";
+    calcBox.innerHTML = '<h2>🧮 Simulācijas kalkulators</h2><p class="muted">Ievadi parametrus un aprēķini šīs simulācijas fizikālos lielumus. Tiek izmantotas tās pašas formulas kā simulācijā.</p><div class="grid cols-3" id="simcalc-fields"></div><button class="btn primary mt" type="button" id="simcalc-run">Aprēķināt</button><div id="simcalc-result" class="mt" aria-live="polite"></div>';
+    box.appendChild(calcBox);
+    const calcFields = FZ.$("#simcalc-fields", calcBox), calcResult = FZ.$("#simcalc-result", calcBox);
+    calcFields.innerHTML = sim.params.map(q => q.type === "select"
+      ? '<label class="f">' + esc(q.label) + '<select data-cp="' + q.id + '">' + q.options.map(o => '<option value="' + esc(o[0]) + '"' + (o[0] === q.value ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select></label>"
+      : '<label class="f">' + esc(q.label) + ' (' + esc(q.unit || "bez mērvienības") + ')<input type="number" data-cp="' + q.id + '" min="' + q.min + '" max="' + q.max + '" step="' + q.step + '" value="' + q.value + '"></label>').join("");
+    FZ.$("#simcalc-run", calcBox).onclick = () => {
+      const cp = {};
+      let error = "";
+      sim.params.forEach(q => {
+        const field = FZ.$('[data-cp="' + q.id + '"]', calcBox);
+        if (q.type === "select") cp[q.id] = field.value;
+        else {
+          const value = FZ.parseNum(field.value);
+          if (!isFinite(value) || value < q.min || value > q.max) error = "Pārbaudi lauku „" + q.label + "”: ievadi skaitli no " + q.min + " līdz " + q.max + ".";
+          else cp[q.id] = value;
+        }
+      });
+      if (error) { calcResult.innerHTML = '<p class="no">' + esc(error) + "</p>"; return; }
+      const cs = sim.reset(cp);
+      const values = sim.read(cp, cs);
+      calcResult.innerHTML = '<h3>Aprēķina rezultāti</h3><div class="readout">' +
+        values.map(v => "<div><small>" + esc(v[0]) + "</small><b>" + esc(v[1]) + "</b></div>").join("") +
+        '</div><div class="eqs mt">' + eqHTML(sim, cp, cs) + "</div>";
+    };
+
     ctl.innerHTML = '<p class="muted" style="margin-top:0">Formula: <span class="formula">' + esc(sim.theory) + "</span></p>" + sim.params.map(q => q.type === "select"
       ? '<label class="f">' + esc(q.label) + '<select data-p="' + q.id + '">' + q.options.map(o => '<option value="' + o[0] + '"' + (o[0] === q.value ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select></label>"
       : '<label class="f">' + esc(q.label) + ': <b id="v-' + q.id + '">' + q.value + "</b> " + esc(q.unit) + '<input type="range" data-p="' + q.id + '" min="' + q.min + '" max="' + q.max + '" step="' + q.step + '" value="' + q.value + '"></label>').join("");
