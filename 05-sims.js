@@ -232,7 +232,7 @@
   function mount(sim, box) {
     const p = {};
     sim.params.forEach(q => p[q.id] = q.value);
-    let calcTime = 1;
+    let calcTime = 1, elapsedTime = 1, lastResultPaint = 0;
     box.innerHTML = '<div class="sim-wrap"><div class="sim-side"><div class="card simcalc" id="simcalc"></div></div><div class="sim-main"><canvas class="sim"></canvas></div></div>';
     const cv = FZ.$("canvas", box), ctx = cv.getContext("2d");
     const calcBox = FZ.$("#simcalc", box);
@@ -293,13 +293,18 @@
         return;
       }
       calcTime = timeValue;
+      elapsedTime = calcTime;
       Object.assign(p, next);
       st = stateAtTime(p, calcTime);
       running = false;
       const runButton = FZ.$("#simcalc-run", calcBox);
       runButton.textContent = "Aprēķināt / Sākt";
+      renderResults(); 
+    }
+
+    function renderResults() {
       const values = sim.read(p, st);
-      values.push(["Ievadītais laiks", fmt(calcTime) + " s"]);
+      values.push(["Simulācijas laiks", fmt(elapsedTime) + " s"]);
       if (sim.id === "pendulum") values.push(["Svārstību skaits", fmt(calcTime / (2 * PI * Math.sqrt(p.L / p.g)))]);
       if (sim.id === "waves") values.push(["Svārstību skaits", fmt(calcTime * p.f)]);
       if (sim.id === "circuit") values.push(["Elektriskais lādiņš Q = I·t", fmt(sim.calc(p).I * calcTime) + " C"]);
@@ -334,7 +339,20 @@
     function frame(now) {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      if (running) sim.step(st, p, dt);
+      if (running) {
+        sim.step(st, p, dt);
+        elapsedTime = Math.min(60, elapsedTime + dt);
+        const timeField = FZ.$('[data-cp="calcTime"]', calcBox);
+        timeField.value = elapsedTime.toFixed(1);
+        if (now - lastResultPaint >= 100) {
+          renderResults();
+          lastResultPaint = now;
+        }
+        if (elapsedTime >= 60) {
+          running = false;
+          FZ.$("#simcalc-run", calcBox).textContent = "Aprēķināt / Sākt";
+        }
+      }
       ctx.clearRect(0, 0, W, H);
       sim.draw(ctx, W, H, p, st, pal());
       raf = requestAnimationFrame(frame);
