@@ -187,10 +187,52 @@
   ];
   FZ.sims = sims;
 
+  /* ---------- formulas ar ievietotiem skaitļiem (atjaunojas reāllaikā) ---------- */
+  const q = x => fmt(+Number(x).toPrecision(4));
+  const rad = d => d * PI / 180, deg = r => r * 180 / PI;
+  const EQ = {
+    freefall: (p, st) => { const T = Math.sqrt(2 * p.h / p.g), t = st.t;
+      return [["Krišanas laiks", "t = √(2·h / g)", "t = √(2·" + q(p.h) + " / " + q(p.g) + ") = " + q(T) + " s"],
+        ["Ātrums zemē", "v = g·t", "v = " + q(p.g) + " · " + q(T) + " = " + q(p.g * T) + " m/s"],
+        ["Nokrītošais ceļš tagad", "s = g·t² / 2", "s = " + q(p.g) + " · " + q(t) + "² / 2 = " + q(p.g * t * t / 2) + " m"]]; },
+    motion: (p, st) => [["Ceļš", "s = v·t", "s = " + q(p.v) + " · " + q(st.t) + " = " + q(p.v * st.t) + " m"],
+      ["Ātrums (nemainīgs)", "v = s / t", "v = " + q(p.v * st.t) + " / " + q(st.t || 1) + " = " + q(p.v) + " m/s"]],
+    newton: (p, st) => { const Fr = Math.max(0, p.F - p.Fb), a = Fr / p.m;
+      return [["Rezultējošais spēks", "Frez = F − Fb", "Frez = " + q(p.F) + " − " + q(p.Fb) + " = " + q(Fr) + " N"],
+        ["Paātrinājums", "a = Frez / m", "a = " + q(Fr) + " / " + q(p.m) + " = " + q(a) + " m/s²"],
+        ["Ātrums tagad", "v = a·t", "v = " + q(a) + " · " + q(st.t) + " = " + q(a * st.t) + " m/s"],
+        ["Ceļš tagad", "s = a·t² / 2", "s = " + q(a) + " · " + q(st.t) + "² / 2 = " + q(a * st.t * st.t / 2) + " m"]]; },
+    incline: (p) => { const th = rad(p.ang), raw = 9.81 * (Math.sin(th) - p.mu * Math.cos(th));
+      return [["Paātrinājums", "a = g·(sin α − μ·cos α)", "a = 9,81 · (sin " + p.ang + "° − " + q(p.mu) + " · cos " + p.ang + "°) = " + q(raw) + " m/s²" + (raw <= 0 ? " → klucis paliek vietā" : "")],
+        ["Vai klucis slīdēs?", "slīd, ja tg α > μ", "tg " + p.ang + "° = " + q(Math.tan(th)) + (Math.tan(th) > p.mu ? " > " : " ≤ ") + q(p.mu) + (Math.tan(th) > p.mu ? " → slīd" : " → neslīd")]]; },
+    pendulum: (p) => { const T = 2 * PI * Math.sqrt(p.L / p.g);
+      return [["Svārstību periods", "T = 2π·√(L / g)", "T = 2π · √(" + q(p.L) + " / " + q(p.g) + ") = " + q(T) + " s"],
+        ["Frekvence", "f = 1 / T", "f = 1 / " + q(T) + " = " + q(1 / T) + " Hz"]]; },
+    refraction: (p) => { const sb = p.n1 * Math.sin(rad(p.al)) / p.n2, out = [["Snella likums", "n₁·sin α = n₂·sin β", q(p.n1) + " · sin " + p.al + "° = " + q(p.n2) + " · sin β"]];
+      if (sb > 1) out.push(["Lauztais stars", "sin β = n₁·sin α / n₂", "sin β = " + q(sb) + " > 1 → pilnīgā iekšējā atstarošanās"]);
+      else out.push(["Lauztais stars", "sin β = n₁·sin α / n₂", "sin β = " + q(sb) + " → β = " + q(deg(Math.asin(sb))) + "°"]);
+      if (p.n1 > p.n2) out.push(["Kritiskais leņķis", "sin α₍kr₎ = n₂ / n₁", "α₍kr₎ = " + q(deg(Math.asin(p.n2 / p.n1))) + "°"]);
+      return out; },
+    waves: (p) => [["Periods", "T = 1 / f", "T = 1 / " + q(p.f) + " = " + q(1 / p.f) + " s"],
+      ["Viļņa garums", "λ = v / f", "λ = " + q(p.v) + " / " + q(p.f) + " = " + q(p.v / p.f) + " m"],
+      ["Viļņa ātrums", "v = λ·f", "v = " + q(p.v / p.f) + " · " + q(p.f) + " = " + q(p.v) + " m/s"]],
+    circuit: (p) => { const r = sims.find(x => x.id === "circuit").calc(p);
+      if (p.mode === "series") return [["Kopējā pretestība", "R = R₁ + R₂", "R = " + q(p.R1) + " + " + q(p.R2) + " = " + q(r.R) + " Ω"],
+        ["Strāva (visur vienāda)", "I = U / R", "I = " + q(p.U) + " / " + q(r.R) + " = " + q(r.I) + " A"],
+        ["Spriegumi uz rezistoriem", "U₁ = I·R₁ ; U₂ = I·R₂", "U₁ = " + q(r.U1) + " V ; U₂ = " + q(r.U2) + " V"]];
+      return [["Kopējā pretestība", "R = R₁·R₂ / (R₁ + R₂)", "R = " + q(p.R1) + " · " + q(p.R2) + " / (" + q(p.R1) + " + " + q(p.R2) + ") = " + q(r.R) + " Ω"],
+        ["Strāvas zaros", "I₁ = U / R₁ ; I₂ = U / R₂", "I₁ = " + q(r.I1) + " A ; I₂ = " + q(r.I2) + " A"],
+        ["Kopējā strāva", "I = I₁ + I₂", "I = " + q(r.I1) + " + " + q(r.I2) + " = " + q(r.I) + " A"]]; }
+  };
+  function eqHTML(sim, p, st) {
+    const f = EQ[sim.id]; if (!f) return "";
+    return "<h3 style='margin:0 0 8px'>📐 Formulas un aprēķins</h3>" + f(p, st).map(r => '<div class="eq"><small>' + esc(r[0]) + '</small><div class="formula">' + esc(r[1]) + '</div><div class="eqnum">' + esc(r[2]) + "</div></div>").join("");
+  }
+
   function mount(sim, box) {
     const p = {}; sim.params.forEach(q => p[q.id] = q.value);
-    box.innerHTML = '<div class="sim-wrap"><div class="card" id="ctl"></div><div><canvas class="sim"></canvas><div class="readout" id="ro"></div><div class="row mt"><button class="btn" id="pp">⏸ Pauze</button><button class="btn" id="rs">↺ No sākuma</button></div></div></div>';
-    const ctl = FZ.$("#ctl", box), cv = FZ.$("canvas", box), ctx = cv.getContext("2d"), ro = FZ.$("#ro", box);
+    box.innerHTML = '<div class="sim-wrap"><div class="card" id="ctl"></div><div><canvas class="sim"></canvas><div class="readout" id="ro"></div><div class="card mt eqs" id="eq"></div><div class="row mt"><button class="btn" id="pp">⏸ Pauze</button><button class="btn" id="rs">↺ No sākuma</button></div></div></div>';
+    const ctl = FZ.$("#ctl", box), cv = FZ.$("canvas", box), ctx = cv.getContext("2d"), ro = FZ.$("#ro", box), eqEl = FZ.$("#eq", box);
     ctl.innerHTML = '<p class="muted" style="margin-top:0">Formula: <span class="formula">' + esc(sim.theory) + "</span></p>" + sim.params.map(q => q.type === "select"
       ? '<label class="f">' + esc(q.label) + '<select data-p="' + q.id + '">' + q.options.map(o => '<option value="' + o[0] + '"' + (o[0] === q.value ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select></label>"
       : '<label class="f">' + esc(q.label) + ': <b id="v-' + q.id + '">' + q.value + "</b> " + esc(q.unit) + '<input type="range" data-p="' + q.id + '" min="' + q.min + '" max="' + q.max + '" step="' + q.step + '" value="' + q.value + '"></label>').join("");
@@ -210,6 +252,7 @@
       if (running) sim.step(st, p, dt);
       ctx.clearRect(0, 0, W, H); sim.draw(ctx, W, H, p, st, pal());
       ro.innerHTML = sim.read(p, st).map(r => "<div><small>" + esc(r[0]) + "</small><b>" + esc(r[1]) + "</b></div>").join("");
+      const eh = eqHTML(sim, p, st); if (eh !== eqEl._h) { eqEl.innerHTML = eh; eqEl._h = eh; }
       raf = requestAnimationFrame(frame);
     }
     raf = requestAnimationFrame(frame);

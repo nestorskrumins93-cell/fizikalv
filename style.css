@@ -211,3 +211,9 @@ canvas.sim { width:100%; display:block; border-radius:14px; background:rgba(0,0,
   .cols-2, .cols-3, .cols-4 { grid-template-columns:1fr; }
   .msg { max-width:95%; }
 }
+
+/* formulas simulācijās */
+.eqs .eq { margin:0 0 12px; }
+.eqs .eq:last-child { margin-bottom:0; }
+.eqs .eq small { color:var(--muted); display:block; font-size:.78rem; margin-bottom:3px; }
+.eqs .eqnum { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:.95rem; margin-top:5px; overflow-wrap:anywhere; }
