@@ -45,16 +45,16 @@
       theory: "s = v·t",
       params: [{ id: "v", label: "Ātrums", unit: "m/s", min: 1, max: 30, step: 1, value: 10 }],
       reset: () => ({ t: 0, hold: 0 }),
-      step(st, p, dt) { if (st.hold > 0) { st.hold -= dt; if (st.hold <= 0) st.t = 0; return; } st.t += dt; if (st.t >= 10) { st.t = 10; st.hold = 1; } },
+      step(st, p, dt) { st.t = Math.min(60, st.t + dt); },
       draw(ctx, W, H, p, st, c) {
-        const gw = Math.min(W - 120, 360), gx = 60, gy0 = 150, gh = 120, k = st.t / 10;
+        const gw = Math.min(W - 120, 360), gx = 60, gy0 = 150, gh = 120, k = st.t / 60;
         line(ctx, gx, gy0, gx + gw, gy0, c.muted, 1); line(ctx, gx, gy0, gx, gy0 - gh, c.muted, 1);
         line(ctx, gx, gy0, gx + gw, gy0 - gh, c.accent2, 2);
         dot(ctx, gx + gw * k, gy0 - gh * k, 6, c.warn);
         text(ctx, "t (s)", gx + gw - 26, gy0 + 16, c.muted); text(ctx, "s (m)", gx - 40, gy0 - gh + 4, c.muted); text(ctx, "s–t grafiks", gx + gw + 10, gy0 - gh / 2, c.muted);
         const ry = H - 70, x0 = 60, rw = W - 120;
         line(ctx, x0, ry + 20, x0 + rw, ry + 20, c.border, 3);
-        for (let i = 0; i <= 10; i += 2) { const xx = x0 + rw * i / 10; line(ctx, xx, ry + 20, xx, ry + 28, c.muted, 1); text(ctx, fmt(i * p.v) + " m", xx, ry + 44, c.muted, 11, "center"); }
+        for (let i = 0; i <= 60; i += 12) { const xx = x0 + rw * i / 60; line(ctx, xx, ry + 20, xx, ry + 28, c.muted, 1); text(ctx, fmt(i * p.v) + " m", xx, ry + 44, c.muted, 11, "center"); }
         const cx = x0 + rw * k;
         ctx.fillStyle = c.accent; ctx.fillRect(cx - 22, ry - 2, 44, 18); ctx.fillRect(cx - 12, ry - 14, 24, 14);
         dot(ctx, cx - 12, ry + 18, 5, c.text); dot(ctx, cx + 12, ry + 18, 5, c.text);
@@ -66,7 +66,7 @@
       theory: "a = (F − Fberzes) / m",
       params: [{ id: "F", label: "Vilcēja spēks F", unit: "N", min: 0, max: 60, step: 1, value: 20 }, { id: "Fb", label: "Berzes spēks", unit: "N", min: 0, max: 40, step: 1, value: 6 }, { id: "m", label: "Masa m", unit: "kg", min: 1, max: 20, step: 1, value: 4 }],
       reset: () => ({ t: 0 }),
-      step(st, p, dt) { st.t += dt; const a = Math.max(0, p.F - p.Fb) / p.m; if (st.t > 8 || 0.5 * a * st.t * st.t > 30) st.t = 0; },
+      step(st, p, dt) { st.t = Math.min(60, st.t + dt); },
       draw(ctx, W, H, p, st, c) {
         const a = Math.max(0, p.F - p.Fb) / p.m, x = 0.5 * a * st.t * st.t, gy = H - 80, bw = 40 + p.m * 3, bh = 40 + p.m * 1.5;
         line(ctx, 20, gy, W - 20, gy, c.border, 3);
@@ -230,64 +230,107 @@
   }
 
   function mount(sim, box) {
-    const p = {}; sim.params.forEach(q => p[q.id] = q.value);
-    box.innerHTML = '<div class="sim-wrap"><div class="sim-side"><div class="card" id="ctl"></div><div class="card simcalc mt" id="simcalc"></div></div><div class="sim-main"><canvas class="sim"></canvas><div class="readout" id="ro"></div><div class="card mt eqs" id="eq"></div><div class="row mt"><button class="btn" id="pp">⏸ Pauze</button><button class="btn" id="rs">↺ No sākuma</button></div></div></div>';
-    const ctl = FZ.$("#ctl", box), cv = FZ.$("canvas", box), ctx = cv.getContext("2d"), ro = FZ.$("#ro", box), eqEl = FZ.$("#eq", box);
-    /* Kalkulators katrai simulācijai — laiks ir ievadāms visos uzdevumos. */
+    const p = {};
+    sim.params.forEach(q => p[q.id] = q.value);
+    let calcTime = 1;
+    box.innerHTML = '<div class="sim-wrap"><div class="sim-side"><div class="card simcalc" id="simcalc"></div></div><div class="sim-main"><canvas class="sim"></canvas><div class="row mt"><button class="btn" id="pp">▶ Atsākt</button><button class="btn" id="rs">↺ No sākuma</button></div></div></div>';
+    const cv = FZ.$("canvas", box), ctx = cv.getContext("2d");
     const calcBox = FZ.$("#simcalc", box);
-    calcBox.innerHTML = '<h2 style="margin:0 0 6px">🧮 Kalkulators</h2><p class="muted" style="margin:0 0 10px">Ievadi lielumus un laiku, lai aprēķinātu rezultātu.</p><div class="simcalc-fields" id="simcalc-fields"></div><button class="btn primary mt" type="button" id="simcalc-run">Aprēķināt</button><div id="simcalc-result" class="mt" aria-live="polite"></div>';
+    calcBox.innerHTML = '<h2 style="margin:0 0 6px">🧮 Kalkulators</h2><p class="muted" style="margin:0 0 10px">Maini lielumus — simulācija atjaunosies automātiski.</p><div class="simcalc-fields" id="simcalc-fields"></div><div id="simcalc-result" class="mt" aria-live="polite"></div>';
     const calcFields = FZ.$("#simcalc-fields", calcBox), calcResult = FZ.$("#simcalc-result", calcBox);
     calcFields.innerHTML = sim.params.map(q => q.type === "select"
       ? '<label class="f">' + esc(q.label) + '<select data-cp="' + q.id + '">' + q.options.map(o => '<option value="' + esc(o[0]) + '"' + (o[0] === q.value ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select></label>"
       : '<label class="f">' + esc(q.label) + ' (' + esc(q.unit || "bez mērvienības") + ')<input type="number" data-cp="' + q.id + '" min="' + q.min + '" max="' + q.max + '" step="' + q.step + '" value="' + q.value + '"></label>').join("") +
       '<label class="f">Laiks t (s)<input type="number" data-cp="calcTime" min="0" max="60" step="0.1" value="1"></label>';
-    FZ.$("#simcalc-run", calcBox).onclick = () => {
-      const cp = {};
-      let error = "";
-      sim.params.forEach(q => {
+
+    let st = sim.reset(p), running = false, last = performance.now(), raf, W = 600;
+    const H = 250;
+    function fit() {
+      const w = cv.parentElement.clientWidth || 600, d = window.devicePixelRatio || 1;
+      cv.width = w * d; cv.height = H * d; cv.style.height = H + "px";
+      ctx.setTransform(d, 0, 0, d, 0, 0); W = w;
+    }
+    fit(); window.addEventListener("resize", fit);
+
+    function stateAtTime(params, seconds) {
+      const next = sim.reset(params);
+      if (sim.id === "freefall") next.t = Math.min(seconds, Math.sqrt(2 * params.h / params.g));
+      else if (sim.id === "motion" || sim.id === "newton") next.t = seconds;
+      else if (sim.id === "incline") {
+        const a = sim.acc(params);
+        next.v = a * seconds;
+        next.s = Math.min(5, 0.5 * a * seconds * seconds);
+      } else if (sim.id === "pendulum") {
+        const h = 1 / 120, count = Math.ceil(seconds / h), dt = count ? seconds / count : 0;
+        for (let i = 0; i < count; i++) sim.step(next, params, dt);
+      } else if (sim.id === "waves") next.t = seconds;
+      else if (sim.id === "circuit") {
+        const r = sim.calc(params);
+        next.o1 = Math.min(300, 25 + 35 * r.I1) * seconds;
+        next.o2 = Math.min(300, 25 + 35 * r.I2) * seconds;
+      }
+      return next;
+    }
+
+    function updateFromCalculator() {
+      const next = {};
+      for (const q of sim.params) {
         const field = FZ.$('[data-cp="' + q.id + '"]', calcBox);
-        if (q.type === "select") cp[q.id] = field.value;
+        if (q.type === "select") next[q.id] = field.value;
         else {
           const value = FZ.parseNum(field.value);
-          if (!isFinite(value) || value < q.min || value > q.max) error = "Pārbaudi lauku „" + q.label + "”: ievadi skaitli no " + q.min + " līdz " + q.max + ".";
-          else cp[q.id] = value;
+          if (!isFinite(value) || value < q.min || value > q.max) {
+            calcResult.innerHTML = '<p class="no">„' + esc(q.label) + '” jābūt robežās no ' + q.min + ' līdz ' + q.max + '.</p>';
+            return;
+          }
+          next[q.id] = value;
         }
-      });
+      }
       const timeField = FZ.$('[data-cp="calcTime"]', calcBox);
-      const calcTime = FZ.parseNum(timeField.value);
-      if (!isFinite(calcTime) || calcTime < 0 || calcTime > 60) error = "Laikam jābūt no 0 līdz 60 sekundēm.";
-      if (error) { calcResult.innerHTML = '<p class="no">' + esc(error) + "</p>"; return; }
-      let cs = sim.reset(cp);
-      if (sim.id === "freefall") cs.t = Math.min(calcTime, Math.sqrt(2 * cp.h / cp.g));
-      else if (sim.id === "motion" || sim.id === "newton") cs.t = calcTime;
-      else if (sim.id === "incline") { const a = sim.acc(cp); cs.v = a * calcTime; cs.s = 0.5 * a * calcTime * calcTime; }
-      const values = sim.read(cp, cs);
+      const timeValue = FZ.parseNum(timeField.value);
+      if (!isFinite(timeValue) || timeValue < 0 || timeValue > 60) {
+        calcResult.innerHTML = '<p class="no">Laikam jābūt no 0 līdz 60 sekundēm.</p>';
+        return;
+      }
+      calcTime = timeValue;
+      Object.assign(p, next);
+      st = stateAtTime(p, calcTime);
+      running = false;
+      const pause = FZ.$("#pp", box);
+      pause.textContent = "▶ Atsākt";
+      const values = sim.read(p, st);
       values.push(["Ievadītais laiks", fmt(calcTime) + " s"]);
-      if (sim.id === "pendulum") values.push(["Svārstību skaits", fmt(calcTime / (2 * PI * Math.sqrt(cp.L / cp.g)))]);
-      if (sim.id === "waves") values.push(["Svārstību skaits", fmt(calcTime * cp.f)]);
-      if (sim.id === "circuit") values.push(["Elektriskais lādiņš Q = I·t", fmt(sim.calc(cp).I * calcTime) + " C"]);
+      if (sim.id === "pendulum") values.push(["Svārstību skaits", fmt(calcTime / (2 * PI * Math.sqrt(p.L / p.g)))]);
+      if (sim.id === "waves") values.push(["Svārstību skaits", fmt(calcTime * p.f)]);
+      if (sim.id === "circuit") values.push(["Elektriskais lādiņš Q = I·t", fmt(sim.calc(p).I * calcTime) + " C"]);
       if (sim.id === "refraction") values.push(["Piezīme", "Laiks neietekmē gaismas laušanas leņķi."]);
       calcResult.innerHTML = '<h3 style="margin:10px 0 6px">Rezultāti</h3><div class="readout simcalc-results">' +
         values.map(v => "<div><small>" + esc(v[0]) + "</small><b>" + esc(v[1]) + "</b></div>").join("") +
-        '</div><div class="eqs simcalc-equations">' + eqHTML(sim, cp, cs) + "</div>";
+        '</div><div class="eqs simcalc-equations">' + eqHTML(sim, p, st) + "</div>";
+    }
+
+    calcFields.addEventListener("input", updateFromCalculator);
+    calcFields.addEventListener("change", updateFromCalculator);
+    FZ.$("#pp", box).onclick = e => {
+      running = !running;
+      e.currentTarget.textContent = running ? "⏸ Pauze" : "▶ Atsākt";
     };
-    let st = sim.reset(p), running = true, last = performance.now(), raf, W = 600; const H = 250;
-    function fit() { const w = cv.parentElement.clientWidth || 600, d = window.devicePixelRatio || 1; cv.width = w * d; cv.height = H * d; cv.style.height = H + "px"; ctx.setTransform(d, 0, 0, d, 0, 0); W = w; }
-    fit(); window.addEventListener("resize", fit);
-    ctl.addEventListener("input", e => {
-      const k = e.target.dataset.p; if (!k) return;
-      const q = sim.params.find(x => x.id === k); p[k] = q.type === "select" ? e.target.value : parseFloat(e.target.value);
-      const lab = FZ.$("#v-" + k, ctl); if (lab) lab.textContent = p[k];
-      st = sim.reset(p);
-    });
-    FZ.$("#pp", box).onclick = e => { running = !running; e.target.textContent = running ? "⏸ Pauze" : "▶ Atsākt"; };
-    FZ.$("#rs", box).onclick = () => { st = sim.reset(p); };
+    FZ.$("#rs", box).onclick = () => {
+      calcFields.querySelectorAll("[data-cp]").forEach(field => {
+        const q = sim.params.find(x => x.id === field.dataset.cp);
+        if (q) field.value = q.value;
+        else if (field.dataset.cp === "calcTime") field.value = "1";
+      });
+      updateFromCalculator();
+    };
+    updateFromCalculator();
+
     function frame(now) {
-      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
       if (running) sim.step(st, p, dt);
-      ctx.clearRect(0, 0, W, H); sim.draw(ctx, W, H, p, st, pal());
-      ro.innerHTML = sim.read(p, st).map(r => "<div><small>" + esc(r[0]) + "</small><b>" + esc(r[1]) + "</b></div>").join("");
-      const eh = eqHTML(sim, p, st); if (eh !== eqEl._h) { eqEl.innerHTML = eh; eqEl._h = eh; }
+      ctx.clearRect(0, 0, W, H);
+      sim.draw(ctx, W, H, p, st, pal());
       raf = requestAnimationFrame(frame);
     }
     raf = requestAnimationFrame(frame);
