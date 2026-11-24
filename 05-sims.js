@@ -232,11 +232,11 @@
   function mount(sim, box) {
     const p = {};
     sim.params.forEach(q => p[q.id] = q.value);
-    let calcTime = 1;
-    box.innerHTML = '<div class="sim-wrap"><div class="sim-side"><div class="card simcalc" id="simcalc"></div></div><div class="sim-main"><canvas class="sim"></canvas><div class="row mt"><button class="btn" id="pp">▶ Atsākt</button><button class="btn" id="rs">↺ No sākuma</button></div></div></div>';
+    let calcTime = 1, elapsedTime = 1, lastResultPaint = 0;
+    box.innerHTML = '<div class="sim-wrap"><div class="sim-side"><div class="card simcalc" id="simcalc"></div></div><div class="sim-main"><canvas class="sim"></canvas></div></div>';
     const cv = FZ.$("canvas", box), ctx = cv.getContext("2d");
     const calcBox = FZ.$("#simcalc", box);
-    calcBox.innerHTML = '<h2 style="margin:0 0 6px">🧮 Kalkulators</h2><p class="muted" style="margin:0 0 10px">Maini lielumus — simulācija atjaunosies automātiski.</p><div class="simcalc-fields" id="simcalc-fields"></div><div id="simcalc-result" class="mt" aria-live="polite"></div>';
+    calcBox.innerHTML = '<h2 style="margin:0 0 6px">🧮 Kalkulators</h2><p class="muted" style="margin:0 0 10px">Maini lielumus — simulācija atjaunosies automātiski.</p><div class="simcalc-fields" id="simcalc-fields"></div><div class="row mt" style="gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" id="simcalc-run">Aprēķināt / Sākt</button><button class="btn" type="button" id="rs">↻ Atkārtot</button></div><div id="simcalc-result" class="mt" aria-live="polite"></div>';
     const calcFields = FZ.$("#simcalc-fields", calcBox), calcResult = FZ.$("#simcalc-result", calcBox);
     calcFields.innerHTML = sim.params.map(q => q.type === "select"
       ? '<label class="f">' + esc(q.label) + '<select data-cp="' + q.id + '">' + q.options.map(o => '<option value="' + esc(o[0]) + '"' + (o[0] === q.value ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select></label>"
@@ -293,13 +293,18 @@
         return;
       }
       calcTime = timeValue;
+      elapsedTime = calcTime;
       Object.assign(p, next);
       st = stateAtTime(p, calcTime);
       running = false;
-      const pause = FZ.$("#pp", box);
-      pause.textContent = "▶ Atsākt";
+      const runButton = FZ.$("#simcalc-run", calcBox);
+      runButton.textContent = "Aprēķināt / Sākt";
+      renderResults(); 
+    }
+
+    function renderResults() {
       const values = sim.read(p, st);
-      values.push(["Ievadītais laiks", fmt(calcTime) + " s"]);
+      values.push(["Simulācijas laiks", fmt(elapsedTime) + " s"]);
       if (sim.id === "pendulum") values.push(["Svārstību skaits", fmt(calcTime / (2 * PI * Math.sqrt(p.L / p.g)))]);
       if (sim.id === "waves") values.push(["Svārstību skaits", fmt(calcTime * p.f)]);
       if (sim.id === "circuit") values.push(["Elektriskais lādiņš Q = I·t", fmt(sim.calc(p).I * calcTime) + " C"]);
@@ -311,9 +316,15 @@
 
     calcFields.addEventListener("input", updateFromCalculator);
     calcFields.addEventListener("change", updateFromCalculator);
-    FZ.$("#pp", box).onclick = e => {
-      running = !running;
-      e.currentTarget.textContent = running ? "⏸ Pauze" : "▶ Atsākt";
+    FZ.$("#simcalc-run", calcBox).onclick = () => {
+      if (running) {
+        running = false;
+        FZ.$("#simcalc-run", calcBox).textContent = "Aprēķināt / Sākt";
+      } else {
+        updateFromCalculator();
+        running = true;
+        FZ.$("#simcalc-run", calcBox).textContent = "⏸ Pauzēt";
+      }
     };
     FZ.$("#rs", box).onclick = () => {
       calcFields.querySelectorAll("[data-cp]").forEach(field => {
@@ -328,7 +339,20 @@
     function frame(now) {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      if (running) sim.step(st, p, dt);
+      if (running) {
+        sim.step(st, p, dt);
+        elapsedTime = Math.min(60, elapsedTime + dt);
+        const timeField = FZ.$('[data-cp="calcTime"]', calcBox);
+        timeField.value = elapsedTime.toFixed(1);
+        if (now - lastResultPaint >= 100) {
+          renderResults();
+          lastResultPaint = now;
+        }
+        if (elapsedTime >= 60) {
+          running = false;
+          FZ.$("#simcalc-run", calcBox).textContent = "Aprēķināt / Sākt";
+        }
+      }
       ctx.clearRect(0, 0, W, H);
       sim.draw(ctx, W, H, p, st, pal());
       raf = requestAnimationFrame(frame);
