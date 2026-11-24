@@ -93,7 +93,7 @@
   function route() {
     if (cleanup) { try { cleanup(); } catch (e) {} cleanup = null; }
     const parts = location.hash.replace(/^#\/?/, "").split("/"), name = parts[0] || "sakums", key = routes[name] || "dashboard";
-    $$("#nav a").forEach(a => a.classList.toggle("active", a.dataset.route === name || (name === "tema" && a.dataset.route === "temas")));
+    $$("#nav a").forEach(a => a.classList.toggle("active", a.dataset.route === name || (name === "tema" && a.dataset.route === "temas") || (name === "kalkulators" && a.dataset.route === "simulacijas")));
     const root = $("#view"); root.innerHTML = "";
     const c = FZ.views[key](root, parts.slice(1)); if (typeof c === "function") cleanup = c;
     FZ.refreshSide(); closeMenu();

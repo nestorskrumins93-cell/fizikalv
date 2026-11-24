@@ -152,7 +152,7 @@
         '<div class="card mt"><h2>Ko tu saproti?</h2><table>' + Object.keys(tg).map(t => {
           const p = Math.round(tg[t].ok / tg[t].n * 100);
           return "<tr><td>" + esc(t) + '</td><td><span class="tag ' + (p >= 70 ? "good" : "bad") + '">' + (p >= 70 ? "Saprot" : "Jāatkārto") + "</span></td><td>" + tg[t].ok + " / " + tg[t].n + '</td><td>' +
-            (p < 70 ? (TAG_STEP[t] ? '<a href="#/tema/ko-maca-fizika/' + TAG_STEP[t] + '">Atkārtot teoriju →</a>' : '<a href="#/kalkulators">Atvērt kalkulatoru →</a>') : "") + "</td></tr>";
+            (p < 70 ? (TAG_STEP[t] ? '<a href="#/tema/ko-maca-fizika/' + TAG_STEP[t] + '">Atkārtot teoriju →</a>' : '<a href="#/simulacijas/kalkulators">Atvērt kalkulatoru →</a>') : "") + "</td></tr>";
         }).join("") + "</table></div>" +
         '<div class="card mt"><h2>Kļūdu pārskats</h2>' + (res.filter(r => !r.ok).length ? res.filter(r => !r.ok).map(r => '<p><b>' + esc(r.q.q) + '</b><br><span class="muted">' + esc(r.q.explain || "") + "</span></p>").join("") : "<p>Kļūdu nav! 🎉</p>") + "</div>" +
         '<div class="row mt"><button class="btn primary" id="again">Jauns tests</button></div>';

@@ -218,9 +218,13 @@
 
   FZ.views.sims = function (root, rest) {
     const id = rest && rest[0], sim = sims.find(s => s.id === id);
+    if (id === "kalkulators") {
+      root.innerHTML = '<div class="crumbs"><a href="#/simulacijas">← Visas simulācijas</a></div><div id="calcbox"></div>';
+      return FZ.views.calc(FZ.$("#calcbox", root));
+    }
     if (!sim) {
       store.visit({ route: "simulacijas", title: "Simulācijas" });
-      root.innerHTML = '<div class="page-head"><h1>🧪 Simulācijas</h1><p>Eksperimentē ar fizikas likumiem: maini parametrus un redzi rezultātu uzreiz.</p></div><div class="grid auto">' +
+      root.innerHTML = '<div class="page-head"><h1>🧪 Simulācijas</h1><p>Eksperimentē ar fizikas likumiem: maini parametrus un redzi rezultātu uzreiz.</p></div><div class="grid auto"><a class="card link sim-card" href="#/simulacijas/kalkulators"><div class="icon-lg">🧮</div><h3>Formulu kalkulators</h3><p class="muted">Izvēlies formulu, ievadi lielumus un redzi risinājumu pa soļiem. Ar mērvienību pārveidotāju.</p>' + (store.get().flags.calc ? '<span class="tag good">Izmēģināts</span>' : "") + '</a>' +
         sims.map(s => '<a class="card link sim-card" href="#/simulacijas/' + s.id + '"><div class="icon-lg">' + s.icon + "</div><h3>" + esc(s.title) + '</h3><p class="muted">' + esc(s.desc) + "</p>" + (store.get().flags["sim:" + s.id] ? '<span class="tag good">Izmēģināts</span>' : "") + "</a>").join("") + "</div>";
       return;
     }

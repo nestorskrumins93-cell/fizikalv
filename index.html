@@ -12,7 +12,7 @@
 
   <div class="topbar">
     <button id="menu-btn" class="icon-btn" aria-label="Izvēlne">☰</button>
-    <span class="brand-mini">⚛️ FizikaLV</span>
+    <a class="brand-mini" href="#/sakums" style="text-decoration:none;color:inherit">⚛️ FizikaLV</a>
     <span class="xp-mini" id="xp-mini"></span>
   </div>
 
@@ -31,10 +31,8 @@
         <span><b>Fizika</b>LV<small>mācies · eksperimentē</small></span>
       </a>
       <nav id="nav">
-        <a href="#/sakums" data-route="sakums"><i>🏠</i>Sākums</a>
         <a href="#/temas" data-route="temas"><i>📚</i>Mācību tēmas</a>
         <a href="#/simulacijas" data-route="simulacijas"><i>🧪</i>Simulācijas</a>
-        <a href="#/kalkulators" data-route="kalkulators"><i>🧮</i>Formulu kalkulators</a>
         <a href="#/uzdevumi" data-route="uzdevumi"><i>📝</i>Uzdevumi un testi</a>
         <a href="#/skolotajs" data-route="skolotajs"><i>🤖</i>Skolotājs</a>
         <a href="#/sasniegumi" data-route="sasniegumi"><i>🏆</i>Sasniegumi</a>
@@ -47,7 +45,6 @@
   </div>
 
   <div id="toasts" aria-live="polite"></div>
-  <script src="app.js"></script>
   <script src="01-store.js"></script>
   
 <script src="02-calc.js"></script>
