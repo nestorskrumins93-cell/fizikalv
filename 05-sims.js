@@ -231,18 +231,16 @@
 
   function mount(sim, box) {
     const p = {}; sim.params.forEach(q => p[q.id] = q.value);
-    box.innerHTML = '<div class="sim-wrap"><div class="card" id="ctl"></div><div><canvas class="sim"></canvas><div class="readout" id="ro"></div><div class="card mt eqs" id="eq"></div><div class="row mt"><button class="btn" id="pp">⏸ Pauze</button><button class="btn" id="rs">↺ No sākuma</button></div></div></div>';
+    box.innerHTML = '<div class="sim-wrap"><div class="sim-side"><div class="card" id="ctl"></div><div class="card simcalc mt" id="simcalc"></div></div><div class="sim-main"><canvas class="sim"></canvas><div class="readout" id="ro"></div><div class="card mt eqs" id="eq"></div><div class="row mt"><button class="btn" id="pp">⏸ Pauze</button><button class="btn" id="rs">↺ No sākuma</button></div></div></div>';
     const ctl = FZ.$("#ctl", box), cv = FZ.$("canvas", box), ctx = cv.getContext("2d"), ro = FZ.$("#ro", box), eqEl = FZ.$("#eq", box);
-    /* Kalkulators katrai simulācijai: izmanto tās pašas parametru definīcijas,
-       aprēķinu funkcijas un vienādojumus, ko izmanto pati simulācija. */
-    const calcBox = document.createElement("section");
-    calcBox.className = "card mt";
-    calcBox.innerHTML = '<h2>🧮 Simulācijas kalkulators</h2><p class="muted">Ievadi parametrus un aprēķini šīs simulācijas fizikālos lielumus. Tiek izmantotas tās pašas formulas kā simulācijā.</p><div class="grid cols-3" id="simcalc-fields"></div><button class="btn primary mt" type="button" id="simcalc-run">Aprēķināt</button><div id="simcalc-result" class="mt" aria-live="polite"></div>';
-    box.appendChild(calcBox);
+    /* Kalkulators katrai simulācijai — laiks ir ievadāms visos uzdevumos. */
+    const calcBox = FZ.$("#simcalc", box);
+    calcBox.innerHTML = '<h2 style="margin:0 0 6px">🧮 Kalkulators</h2><p class="muted" style="margin:0 0 10px">Ievadi lielumus un laiku, lai aprēķinātu rezultātu.</p><div class="simcalc-fields" id="simcalc-fields"></div><button class="btn primary mt" type="button" id="simcalc-run">Aprēķināt</button><div id="simcalc-result" class="mt" aria-live="polite"></div>';
     const calcFields = FZ.$("#simcalc-fields", calcBox), calcResult = FZ.$("#simcalc-result", calcBox);
     calcFields.innerHTML = sim.params.map(q => q.type === "select"
       ? '<label class="f">' + esc(q.label) + '<select data-cp="' + q.id + '">' + q.options.map(o => '<option value="' + esc(o[0]) + '"' + (o[0] === q.value ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select></label>"
-      : '<label class="f">' + esc(q.label) + ' (' + esc(q.unit || "bez mērvienības") + ')<input type="number" data-cp="' + q.id + '" min="' + q.min + '" max="' + q.max + '" step="' + q.step + '" value="' + q.value + '"></label>').join("");
+      : '<label class="f">' + esc(q.label) + ' (' + esc(q.unit || "bez mērvienības") + ')<input type="number" data-cp="' + q.id + '" min="' + q.min + '" max="' + q.max + '" step="' + q.step + '" value="' + q.value + '"></label>').join("") +
+      '<label class="f">Laiks t (s)<input type="number" data-cp="calcTime" min="0" max="60" step="0.1" value="1"></label>';
     FZ.$("#simcalc-run", calcBox).onclick = () => {
       const cp = {};
       let error = "";
@@ -255,18 +253,25 @@
           else cp[q.id] = value;
         }
       });
+      const timeField = FZ.$('[data-cp="calcTime"]', calcBox);
+      const calcTime = FZ.parseNum(timeField.value);
+      if (!isFinite(calcTime) || calcTime < 0 || calcTime > 60) error = "Laikam jābūt no 0 līdz 60 sekundēm.";
       if (error) { calcResult.innerHTML = '<p class="no">' + esc(error) + "</p>"; return; }
-      const cs = sim.reset(cp);
+      let cs = sim.reset(cp);
+      if (sim.id === "freefall") cs.t = Math.min(calcTime, Math.sqrt(2 * cp.h / cp.g));
+      else if (sim.id === "motion" || sim.id === "newton") cs.t = calcTime;
+      else if (sim.id === "incline") { const a = sim.acc(cp); cs.v = a * calcTime; cs.s = 0.5 * a * calcTime * calcTime; }
       const values = sim.read(cp, cs);
-      calcResult.innerHTML = '<h3>Aprēķina rezultāti</h3><div class="readout">' +
+      values.push(["Ievadītais laiks", fmt(calcTime) + " s"]);
+      if (sim.id === "pendulum") values.push(["Svārstību skaits", fmt(calcTime / (2 * PI * Math.sqrt(cp.L / cp.g)))]);
+      if (sim.id === "waves") values.push(["Svārstību skaits", fmt(calcTime * cp.f)]);
+      if (sim.id === "circuit") values.push(["Elektriskais lādiņš Q = I·t", fmt(sim.calc(cp).I * calcTime) + " C"]);
+      if (sim.id === "refraction") values.push(["Piezīme", "Laiks neietekmē gaismas laušanas leņķi."]);
+      calcResult.innerHTML = '<h3 style="margin:10px 0 6px">Rezultāti</h3><div class="readout simcalc-results">' +
         values.map(v => "<div><small>" + esc(v[0]) + "</small><b>" + esc(v[1]) + "</b></div>").join("") +
-        '</div><div class="eqs mt">' + eqHTML(sim, cp, cs) + "</div>";
+        '</div><div class="eqs simcalc-equations">' + eqHTML(sim, cp, cs) + "</div>";
     };
-
-    ctl.innerHTML = '<p class="muted" style="margin-top:0">Formula: <span class="formula">' + esc(sim.theory) + "</span></p>" + sim.params.map(q => q.type === "select"
-      ? '<label class="f">' + esc(q.label) + '<select data-p="' + q.id + '">' + q.options.map(o => '<option value="' + o[0] + '"' + (o[0] === q.value ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select></label>"
-      : '<label class="f">' + esc(q.label) + ': <b id="v-' + q.id + '">' + q.value + "</b> " + esc(q.unit) + '<input type="range" data-p="' + q.id + '" min="' + q.min + '" max="' + q.max + '" step="' + q.step + '" value="' + q.value + '"></label>').join("");
-    let st = sim.reset(p), running = true, last = performance.now(), raf, W = 600; const H = 360;
+    let st = sim.reset(p), running = true, last = performance.now(), raf, W = 600; const H = 250;
     function fit() { const w = cv.parentElement.clientWidth || 600, d = window.devicePixelRatio || 1; cv.width = w * d; cv.height = H * d; cv.style.height = H + "px"; ctx.setTransform(d, 0, 0, d, 0, 0); W = w; }
     fit(); window.addEventListener("resize", fit);
     ctl.addEventListener("input", e => {
